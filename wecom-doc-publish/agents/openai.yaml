@@ -1,0 +1,4 @@
+interface:
+  display_name: "企微文档发布"
+  short_description: "发布 Markdown 到企微共享文档目录，关联需求并按内容变化发送群通知"
+  default_prompt: "使用 $wecom-doc-publish 把这次修改的对接与测试说明发布到企微，并关联对应 TAPD 需求。"

@@ -1,0 +1,37 @@
+{
+  "cli_path": "wecom-cli",
+  "mermaid_cli": "mmdc",
+  "chrome_path": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "state_path": "state.json",
+  "publisher_label": "",
+  "link_access": "members",
+  "projects": {
+    "api": {
+      "repo_root": "",
+      "maintainers": [],
+      "readers": []
+    },
+    "admin": {
+      "repo_root": "",
+      "maintainers": [],
+      "readers": []
+    },
+    "mall": {
+      "repo_root": "",
+      "maintainers": [],
+      "readers": []
+    }
+  },
+  "shared_catalog": {
+    "root": "https://doc.weixin.qq.com/smartpage/REPLACE_ROOT",
+    "projects": {
+      "api": "https://doc.weixin.qq.com/smartpage/REPLACE_API",
+      "admin": "https://doc.weixin.qq.com/smartpage/REPLACE_ADMIN",
+      "mall": "https://doc.weixin.qq.com/smartpage/REPLACE_MALL"
+    }
+  },
+  "group_notification": {
+    "enabled": true,
+    "webhook_key_env": "WECOM_WEBHOOK_KEY"
+  }
+}

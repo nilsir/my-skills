@@ -9,6 +9,7 @@ This repository contains reusable AI skills. Each skill lives in its own top-lev
 | Skill | Runtime | Purpose |
 | --- | --- | --- |
 | `claude-md-reviewer` | Claude Code | Reviews and improves `CLAUDE.md` files with a scoring rubric and suggested edits. |
+| `wecom-doc-publish` | Codex | Publishes Markdown to shared WeCom documents, links TAPD requirements, and notifies a group on content changes. |
 
 The `Runtime` column states which agent runtime a skill targets. Skills that work in both are marked `Claude Code / Codex`.
 
@@ -20,6 +21,10 @@ The `Runtime` column states which agent runtime a skill targets. Skills that wor
 ├── README.zh-CN.md
 ├── LICENSE
 ├── .gitignore
+├── wecom-doc-publish/
+│   ├── SKILL.md
+│   ├── config.example.json
+│   └── references/
 └── claude-md-reviewer/
     ├── SKILL.md
     └── references/
@@ -34,7 +39,7 @@ The `Runtime` column states which agent runtime a skill targets. Skills that wor
 repo="git@github.com:nilsir/my-skills.git"
 skill="claude-md-reviewer"
 dest="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills"
-# Codex (only for skills marked Claude Code / Codex): dest="${CODEX_HOME:-$HOME/.codex}/skills"
+# Codex (only for skills marked Codex or Claude Code / Codex): dest="${CODEX_HOME:-$HOME/.codex}/skills"
 tmp="$(mktemp -d)"
 
 git clone --depth 1 --filter=blob:none --sparse "$repo" "$tmp"
@@ -48,7 +53,7 @@ cp -R "$tmp/$skill" "$dest/"
 ```bash
 repo="git@github.com:nilsir/my-skills.git"
 dest="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills"
-# Codex (only for skills marked Claude Code / Codex): dest="${CODEX_HOME:-$HOME/.codex}/skills"
+# Codex (only for skills marked Codex or Claude Code / Codex): dest="${CODEX_HOME:-$HOME/.codex}/skills"
 tmp="$(mktemp -d)"
 
 git clone --depth 1 "$repo" "$tmp"
@@ -60,11 +65,7 @@ find "$tmp" -mindepth 1 -maxdepth 1 -type d \
 
 ## Update an Installed Skill
 
-Re-run the matching install command. To avoid stale files, remove the old installed skill first when replacing a single skill:
-
-```bash
-rm -rf "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/claude-md-reviewer"
-```
+Follow the skill’s installation guide when upgrading. Preserve local configuration, publication state, private files and existing document mappings for stateful skills such as `wecom-doc-publish`; do not delete the installed directory. Replace versioned code and references only, then review changes to the configuration example.
 
 ## Create or Update a Skill
 
@@ -125,3 +126,7 @@ Before opening a pull request:
 ## License
 
 Released under the [MIT License](LICENSE).
+
+## WeCom Document Publishing
+
+See [installation and configuration](wecom-doc-publish/references/安装与配置.md). The group robot key is read from the `WECOM_WEBHOOK_KEY` environment variable; only its variable name is versioned. Local configuration, publication state and secrets are ignored.

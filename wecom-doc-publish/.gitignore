@@ -1,0 +1,9 @@
+config.json
+state.json
+state.json.*
+private/
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]

@@ -9,6 +9,7 @@
 | Skill | 运行时 | 用途 |
 | --- | --- | --- |
 | `claude-md-reviewer` | Claude Code | 使用评分细则审查并改进 `CLAUDE.md` 文件，输出问题和修改建议。 |
+| `wecom-doc-publish` | Codex | 将 Markdown 发布到企微共享文档目录，关联 TAPD，并在首次发布或内容变化时通知群。 |
 
 `运行时` 列标明 skill 面向哪个 agent 运行时。两者通用的 skill 标记为 `Claude Code / Codex`。
 
@@ -20,6 +21,10 @@
 ├── README.zh-CN.md
 ├── LICENSE
 ├── .gitignore
+├── wecom-doc-publish/
+│   ├── SKILL.md
+│   ├── config.example.json
+│   └── references/
 └── claude-md-reviewer/
     ├── SKILL.md
     └── references/
@@ -34,7 +39,7 @@
 repo="git@github.com:nilsir/my-skills.git"
 skill="claude-md-reviewer"
 dest="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills"
-# Codex（仅适用于标注 Claude Code / Codex 的 skill）：dest="${CODEX_HOME:-$HOME/.codex}/skills"
+# Codex（仅适用于标注 Codex 或 Claude Code / Codex 的 skill）：dest="${CODEX_HOME:-$HOME/.codex}/skills"
 tmp="$(mktemp -d)"
 
 git clone --depth 1 --filter=blob:none --sparse "$repo" "$tmp"
@@ -48,7 +53,7 @@ cp -R "$tmp/$skill" "$dest/"
 ```bash
 repo="git@github.com:nilsir/my-skills.git"
 dest="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills"
-# Codex（仅适用于标注 Claude Code / Codex 的 skill）：dest="${CODEX_HOME:-$HOME/.codex}/skills"
+# Codex（仅适用于标注 Codex 或 Claude Code / Codex 的 skill）：dest="${CODEX_HOME:-$HOME/.codex}/skills"
 tmp="$(mktemp -d)"
 
 git clone --depth 1 "$repo" "$tmp"
@@ -60,11 +65,7 @@ find "$tmp" -mindepth 1 -maxdepth 1 -type d \
 
 ## 更新已安装的 Skill
 
-重新执行对应的下载命令即可。如果要替换单个 skill，建议先删除旧目录，避免残留文件：
-
-```bash
-rm -rf "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/claude-md-reviewer"
-```
+升级时遵循对应技能的安装说明。对于 wecom-doc-publish 这类保存本机状态的技能，保留配置、发布记录、私密文件和现有文档映射，不删除整个安装目录；只替换版本管理中的代码与参考文档，再核对配置示例的变化。
 
 ## 创建或更新 Skill
 
@@ -125,3 +126,7 @@ skill-name/
 ## License
 
 基于 [MIT License](LICENSE) 发布。
+
+## 企微文档发布
+
+见[安装与配置](wecom-doc-publish/references/安装与配置.md)。群机器人 key 通过 `WECOM_WEBHOOK_KEY` 环境变量传入，仓库只保存变量名。实际密钥、本机配置和发布记录不入库。
