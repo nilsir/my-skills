@@ -729,7 +729,7 @@ class Publisher:
             self._members()
             return self._result(status='ready', url=self.state.data['documents']['root']['url'])
 
-    def publish(self, project, tapd, file, kind, execute=False, also_projects=None):
+    def publish(self, project, tapd, file, kind, execute=False, also_projects=None, notification_file=None):
         if project not in self.config['projects']:
             raise PublisherError('Project is not configured: ' + project)
         assigned_projects = list(dict.fromkeys([project] + list(also_projects or [])))
@@ -748,6 +748,13 @@ class Publisher:
             story = None
             identity = 'url:' + hashlib.sha256(tapd.encode('utf-8')).hexdigest()
         path = Path(file).expanduser().resolve()
+        notice = None
+        if notification_file is not None:
+            try:
+                notice = Path(notification_file).expanduser().read_text(encoding='utf-8')
+                group_notify.markdown_payload(notice, 'https://doc.weixin.qq.com/smartpage/PREVIEW')
+            except (OSError, UnicodeError, ValueError) as exc:
+                raise PublisherError('通知文件不可用：' + str(exc)) from exc
         key = 'body:' + hashlib.sha256(json.dumps([identity, project, kind, str(path)]).encode()).hexdigest()
         self.warnings = []
         with self.temporary_directory() as directory:
@@ -771,6 +778,7 @@ class Publisher:
                 prior_projects = self.state.data['documents'].get(key, {}).get('projects', [])
                 body_projects = list(dict.fromkeys(assigned_projects + prior_projects))
                 doc = self._ensure_doc(key, project + ' · ' + kind + ' · ' + path.name, body_projects)
+                custom_payload = group_notify.markdown_payload(notice, doc['url']) if notice is not None else None
                 doc['source_file'] = str(path)
                 self.state.save()
                 changed = doc.get('source_hash') != digest
@@ -793,7 +801,7 @@ class Publisher:
                         event_id = str(uuid.uuid4())
                         doc['notification_event_id'] = event_id
                         event = {'doc_key': key, 'hash': digest, 'status': 'queued', 'publish_complete': False,
-                                 'payload': group_notify.payload(body_projects, doc['title'], first_publish, doc['url'],
+                                 'payload': custom_payload or group_notify.payload(body_projects, doc['title'], first_publish, doc['url'],
                                      self.state.data['documents']['requirement:' + identity]['url'], tapd)}
                         self.state.data.setdefault('group_notifications', {})[event_id] = event
                     # The source hash and its new event share one atomic save.
@@ -955,6 +963,7 @@ def main(argv=None, publisher_class=Publisher):
     command.add_argument('--tapd', required=True)
     command.add_argument('--file', required=True)
     command.add_argument('--kind', required=True)
+    command.add_argument('--notification-file', help='已审核的Markdown通知，使用 {document_url} 作为正文链接占位符')
     command.add_argument('--execute', action='store_true')
     command = commands.add_parser('read')
     command.add_argument('--url', required=True)
@@ -970,7 +979,7 @@ def main(argv=None, publisher_class=Publisher):
         app = publisher_class(config)
         if args.command == 'publish':
             result = app.publish(args.project, args.tapd, args.file, args.kind, execute=args.execute,
-                                 also_projects=args.also_project)
+                                 also_projects=args.also_project, notification_file=args.notification_file)
         elif args.command == 'configure-group':
             result = app.configure_group(execute=args.execute)
         elif args.command == 'notify-retry':

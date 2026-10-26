@@ -21,6 +21,10 @@ python3 SKILL_DIR/shared_publisher.py --config SKILL_DIR/config.json publish --p
 
 同一份正文涉及 Admin 时加 `--also-project admin`；预览时省略 `--execute`。使用 shared_publisher.py，不能换成会全量重写独立目录的旧入口。
 
+### 测试交接文档通知
+
+发布测试交接文档时，使用 [测试交接通知模板](references/测试交接通知模板.md)，按“交付信息、上线依赖、测试重点、上线顺序”整理通知。根据本地正文及实际分支填好本次通知Markdown，仅保留 `{document_url}` 链接占位符，在发布命令加 `--notification-file 通知绝对路径`，正文及目录成功后由同一持久事件发送，不能先发旧格式再补发。没有真实TAPD链接时，不伪造需求关联；复用现有项目目录和底层发布能力，通知同样通过 `group_notify.markdown_payload()` 与持久事件发送。其他文档保留原通知格式。
+
 - 使用配置中的固定共享目录，先读取再局部追加缺失链接，保留他人的内容。同一 TAPD 需求复用唯一入口、按项目分组；不自动读取或回写 TAPD。
 - 更新自己登记的同一份源文件沿用原链接。文件改名、移动或接管他人的文档时先核实映射，不能据同名文件覆盖他人的正文。
 - 图片先上传，Mermaid 先转 PNG；失败就报告，不能把代码块当流程图。未发布的本地 Markdown 参考只显示文件名，不递归发布。
