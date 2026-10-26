@@ -1,11 +1,11 @@
 ---
 name: wecom-doc-publish
-description: Use when publishing or updating local Markdown as WeCom documents for API, Admin or Mall, associating TAPD requirements, notifying a configured WeCom group after publication changes, or reading shared WeCom document links. 中文触发词：发布到企微、更新对接文档、发布测试说明、读取企业微信文档。
+description: Use when publishing or updating local Markdown as WeCom documents for API, Admin or Mall, associating TAPD requirements, notifying a configured WeCom group after publication changes, or reading shared WeCom document links. 中文触发词：发布到企微、测试交接文档、前端联调文档、更新对接文档、发布测试说明、读取企业微信文档。
 ---
 
 # 企微文档发布
 
-本地 Markdown 是正文来源。用户只要求写文档时先保存到本地；明确要求发布或更新后执行同步。项目、文件、文档类型和 TAPD 能从上下文确定时，直接执行，不重复询问发布许可。
+本地 Markdown 是正文来源。用户只要求写文档时先保存到本地；明确要求发布或更新后执行同步，并在发布成功后通知已配置且已授权的群，除非用户明确要求不通知。项目、文件、文档类型和 TAPD 能从上下文确定时，直接执行，不重复询问发布或群通知许可。
 
 ## 安装与配置
 
@@ -21,9 +21,19 @@ python3 SKILL_DIR/shared_publisher.py --config SKILL_DIR/config.json publish --p
 
 同一份正文涉及 Admin 时加 `--also-project admin`；预览时省略 `--execute`。使用 shared_publisher.py，不能换成会全量重写独立目录的旧入口。
 
-### 测试交接文档通知
+### 根据文档用途自动选择通知模板
 
-发布测试交接文档时，使用 [测试交接通知模板](references/测试交接通知模板.md)，按“交付信息、上线依赖、测试重点、上线顺序”整理通知。根据本地正文及实际分支填好本次通知Markdown，仅保留 `{document_url}` 链接占位符，在发布命令加 `--notification-file 通知绝对路径`，正文及目录成功后由同一持久事件发送，不能先发旧格式再补发。没有真实TAPD链接时，不伪造需求关联；复用现有项目目录和底层发布能力，通知同样通过 `group_notify.markdown_payload()` 与持久事件发送。其他文档保留原通知格式。
+用户只说“发布到企微”时，也应先读本地正文，结合标题、主要读者和用途自行选模板，不要求用户再次指定类型：
+
+| 主要用途 | 使用模板 | 通知分组 |
+| --- | --- | --- |
+| 交给测试执行用例、验证功能与回归，交接已验证结果及待测项 | [测试交接通知模板](references/测试交接通知模板.md) | 交付信息、上线依赖、测试重点、上线顺序 |
+| 交给前端按接口契约接入页面，说明参数/字段/状态、环境及接入步骤 | [前端联调通知模板](references/前端联调通知模板.md) | 联调信息、接口与依赖、联调重点、联调顺序 |
+| 设计、排查或其他普通说明 | 既有简短通知 | 项目、正文与相关目录链接 |
+
+前端联调文档含测试用例时仍按前端主要用途选择；面向测试的验收文档引用接口时仍选测试交接模板。混合文档按主要用途选一套并补充必要的另一类重点，同一份正文只发一条通知，不机械根据文件名或“测试”一词判断。
+
+按所选模板，从本地正文、实际分支及已核实环境填好本次通知Markdown，不编造接口、字段、部署、自验或上线结论；未知信息写“待确认”。仅保留一个 `{document_url}` 链接占位符，在发布命令加 `--notification-file 通知绝对路径`，正文及目录成功后由同一持久事件发送，不能先发旧格式再补发。没有真实TAPD链接时，不伪造需求关联；复用现有项目目录和底层发布能力，通知同样通过 `group_notify.markdown_payload()` 与持久事件发送。通知内容不超过4096 UTF-8字节，过长时保留摘要、细节指向正文。
 
 - 使用配置中的固定共享目录，先读取再局部追加缺失链接，保留他人的内容。同一 TAPD 需求复用唯一入口、按项目分组；不自动读取或回写 TAPD。
 - 更新自己登记的同一份源文件沿用原链接。文件改名、移动或接管他人的文档时先核实映射，不能据同名文件覆盖他人的正文。
