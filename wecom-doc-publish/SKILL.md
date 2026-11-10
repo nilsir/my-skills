@@ -1,6 +1,6 @@
 ---
 name: wecom-doc-publish
-description: Use when publishing or updating local Markdown as WeCom documents for API, Admin or Mall, associating TAPD requirements, notifying a configured WeCom group after publication changes, or reading shared WeCom document links. 中文触发词：发布到企微、测试交接文档、前端联调文档、更新对接文档、发布测试说明、读取企业微信文档。
+description: Use when publishing or updating local Markdown as WeCom documents for API, Admin or Mall, synchronizing delivery comments and fields to TAPD, completing explicitly requested TAPD development nodes, or reading shared WeCom documents. 中文触发词：发布到企微、测试交接文档、前端联调文档、TAPD评论、回填开发字段、完成开发节点、读取企业微信文档。
 ---
 
 # 企微文档发布
@@ -21,6 +21,14 @@ python3 SKILL_DIR/shared_publisher.py --config SKILL_DIR/config.json publish --p
 
 同一份正文涉及 Admin 时加 `--also-project admin`；预览时省略 `--execute`。使用 shared_publisher.py，不能换成会全量重写独立目录的旧入口。
 
+### TAPD 交付联动
+
+已启用 `tapd_sync` 时，先读 [TAPD 交付与节点](references/TAPD交付与节点.md)。代理从本次正文、实际改动和分支自动生成交付 JSON，发布命令追加 `--tapd-handoff 清单绝对路径`；不要让用户手填技术清单。发布成功后自动评论文档链接及适用的 SQL、菜单交接，并填写有依据的开发字段。同版本不重复评论，跨项目共用同一正文与一份评论；这不构成发布新内容的授权。
+
+实际工时只使用用户提供或已确认的记录；已有非空字段冲突不默认覆盖。分别报告企微发布、群通知、TAPD 评论、字段回填的结果；部分失败不能说全部完成。评论或字段 `unknown/sending` 时只读回核对，不能清空状态或盲目重发。
+
+发布文档不完成开发节点。用户明确要求完成某个节点后，核对交付证据、当前节点和必填项，用独立 `tapd_cli.py complete-step` 先预览再执行；缺少真实必填值只暂停受影响节点。不直接改需求 `status`，也不自动完成后续节点。
+
 只有需求标题、未提供 TAPD 链接时，先用已授权的读取工具在已核实项目中检索，核对标题、当前任务与直接父子关系；确认唯一对应对象后再解析人员。不能把“上下文没有链接”直接当作“没有关联”。多个合理候选只暂停关联确认，不猜测对象或遍历无关项目。
 
 ### 根据文档用途自动选择通知模板
@@ -38,7 +46,7 @@ python3 SKILL_DIR/shared_publisher.py --config SKILL_DIR/config.json publish --p
 
 按所选模板，从本地正文、实际分支及已核实环境填好本次通知Markdown，不编造接口、字段、部署、自验或上线结论；未知信息写“待确认”。仅保留一个 `{document_url}` 链接占位符，在发布命令加 `--notification-file 通知绝对路径`，正文及目录成功后由同一持久事件发送，不能先发旧格式再补发。没有真实TAPD链接时，不伪造需求关联；复用现有项目目录和底层发布能力，通知同样通过 `group_notify.markdown_payload()` 与持久事件发送。通知内容不超过4096 UTF-8字节，过长时保留摘要、细节指向正文。
 
-- 使用配置中的固定共享目录，先读取再局部追加缺失链接，保留他人的内容。同一 TAPD 需求复用唯一入口、按项目分组；关联人员所需读取按本次授权核实，不自动回写 TAPD。
+- 使用配置中的固定共享目录，先读取再局部追加缺失链接，保留他人的内容。同一 TAPD 需求复用唯一入口、按项目分组；已启用 TAPD 联动且用户要求本次发布时，按上述规则同步。没有真实 TAPD 关联时，不伪造对象，沿用无关联的正文发布路径并说明未同步 TAPD。
 - 更新自己登记的同一份源文件沿用原链接。文件改名、移动或接管他人的文档时先核实映射，不能据同名文件覆盖他人的正文。
 - 图片先上传，Mermaid 先转 PNG；失败就报告，不能把代码块当流程图。未发布的本地 Markdown 参考只显示文件名，不递归发布。
 - 正文全量更新会重建正文块，不能保证行内评论保留。有保留讨论要求时说明限制并选择局部修改。

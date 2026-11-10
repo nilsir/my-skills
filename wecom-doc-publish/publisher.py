@@ -15,6 +15,7 @@ import uuid
 import warnings
 
 import group_notify
+import tapd_handoff
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -729,7 +730,33 @@ class Publisher:
             self._members()
             return self._result(status='ready', url=self.state.data['documents']['root']['url'])
 
-    def publish(self, project, tapd, file, kind, execute=False, also_projects=None, notification_file=None):
+    def _publication_target(self, identity, tapd, project, kind, path, handoff):
+        """调用方持有状态锁，依据最新映射复用需求和正文。"""
+        if handoff:
+            candidates = [(key, req) for key, req in self.state.data['requirements'].items()
+                          if tapd_handoff.same_target(req.get('tapd'), tapd)]
+            if len(candidates) > 1:
+                raise PublisherError('同一 TAPD 需求已有多个本机入口，需核对映射')
+            if candidates:
+                identity, prior = candidates[0]
+                tapd = prior['tapd']
+            else:
+                workspace, story = handoff.manifest['workspace_id'], handoff.manifest['story_id']
+                identity = workspace + ':' + story
+                tapd = 'https://www.tapd.cn/tapd_fe/' + workspace + '/story/detail/' + story
+        key = 'body:' + hashlib.sha256(json.dumps([identity, project, kind, str(path)]).encode()).hexdigest()
+        if handoff:
+            bodies = self.state.data['requirements'].get(identity, {}).get('bodies', {})
+            matches = [body_key for body_key, metadata in bodies.items()
+                       if metadata.get('kind') == kind
+                       and self.state.data['documents'].get(body_key, {}).get('source_file') == str(path)]
+            if len(matches) > 1:
+                raise PublisherError('同一需求和源文件已有多份正文映射，需先核对')
+            if matches:
+                key = matches[0]
+        return identity, tapd, key
+
+    def publish(self, project, tapd, file, kind, execute=False, also_projects=None, notification_file=None, tapd_handoff_file=None):
         if project not in self.config['projects']:
             raise PublisherError('Project is not configured: ' + project)
         assigned_projects = list(dict.fromkeys([project] + list(also_projects or [])))
@@ -748,6 +775,12 @@ class Publisher:
             story = None
             identity = 'url:' + hashlib.sha256(tapd.encode('utf-8')).hexdigest()
         path = Path(file).expanduser().resolve()
+        try:
+            handoff = tapd_handoff.prepare(self.config.get('tapd_sync'), tapd, tapd_handoff_file)
+        except tapd_handoff.TapdError as exc:
+            raise PublisherError(str(exc)) from None
+        if handoff:
+            workspace, story = handoff.manifest['workspace_id'], handoff.manifest['story_id']
         notice = None
         if notification_file is not None:
             try:
@@ -755,20 +788,22 @@ class Publisher:
                 group_notify.markdown_payload(notice, 'https://doc.weixin.qq.com/smartpage/PREVIEW')
             except (OSError, UnicodeError, ValueError) as exc:
                 raise PublisherError('通知文件不可用：' + str(exc)) from exc
-        key = 'body:' + hashlib.sha256(json.dumps([identity, project, kind, str(path)]).encode()).hexdigest()
         self.warnings = []
         with self.temporary_directory() as directory:
             content, assets, digest = self.prepare(path, directory)  # Validate/render before remote mutation.
             if not execute:
                 with self.state.locked():
+                    identity, tapd, key = self._publication_target(identity, tapd, project, kind, path, handoff)
                     self.render_local_links(content, path, self.state.data['documents'])
                     prior_projects = self.state.data['documents'].get(key, {}).get('projects', [])
                     body_projects = list(dict.fromkeys(assigned_projects + prior_projects))
                 return {'status': 'dry_run', 'project': project, 'projects': body_projects,
                         'kind': kind, 'file': str(path), 'tapd': tapd, 'images': len(assets),
-                        'changed': None, 'warnings': list(dict.fromkeys(self.warnings))}
+                        'changed': None, 'warnings': list(dict.fromkeys(self.warnings)),
+                        'tapd_sync': handoff.preview() if handoff else {'status': 'disabled'}}
             with self.state.locked(write=True):
                 self._pending_guard()
+                identity, tapd, key = self._publication_target(identity, tapd, project, kind, path, handoff)
                 content = self.render_local_links(content, path, self.state.data['documents'])
                 digest = hashlib.sha256((digest + '\0' + content).encode('utf-8')).hexdigest()
                 self._ensure_indexes()
@@ -821,8 +856,9 @@ class Publisher:
                 notification = {'status': 'disabled' if changed else 'unchanged'}
                 if changed and event_id:
                     notification = self._notify_event(event_id)
+                tapd_result = handoff.sync(self.state, doc, digest) if handoff else {'status': 'disabled'}
                 return self._result(status='published' if changed else 'unchanged', url=doc['url'], changed=changed,
-                                    notification=notification)
+                                    notification=notification, tapd_sync=tapd_result)
 
     def _group_settings(self):
         settings = self.config.get('group_notification', {})
@@ -964,6 +1000,7 @@ def main(argv=None, publisher_class=Publisher):
     command.add_argument('--file', required=True)
     command.add_argument('--kind', required=True)
     command.add_argument('--notification-file', help='已审核的Markdown通知，使用 {document_url} 作为正文链接占位符')
+    command.add_argument('--tapd-handoff', help='按正文与实际变更生成的 TAPD 交付 JSON 清单')
     command.add_argument('--execute', action='store_true')
     command = commands.add_parser('read')
     command.add_argument('--url', required=True)
@@ -976,10 +1013,14 @@ def main(argv=None, publisher_class=Publisher):
         settings = config.get('group_notification')
         if isinstance(settings, dict) and settings.get('webhook_file'):
             settings['webhook_file'] = str((config_path.parent / Path(settings['webhook_file']).expanduser()).resolve())
+        tapd_settings = config.get('tapd_sync')
+        if isinstance(tapd_settings, dict) and tapd_settings.get('credentials_path'):
+            tapd_settings['credentials_path'] = str((config_path.parent / Path(tapd_settings['credentials_path']).expanduser()).resolve())
         app = publisher_class(config)
         if args.command == 'publish':
             result = app.publish(args.project, args.tapd, args.file, args.kind, execute=args.execute,
-                                 also_projects=args.also_project, notification_file=args.notification_file)
+                                 also_projects=args.also_project, notification_file=args.notification_file,
+                                 tapd_handoff_file=args.tapd_handoff)
         elif args.command == 'configure-group':
             result = app.configure_group(execute=args.execute)
         elif args.command == 'notify-retry':

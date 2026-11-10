@@ -4,6 +4,10 @@
   "chrome_path": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   "state_path": "state.json",
   "publisher_label": "",
+  "tapd_sync": {
+    "enabled": false,
+    "credentials_path": "~/.config/tapd/credentials.json"
+  },
   "link_access": "members",
   "projects": {
     "api": {
