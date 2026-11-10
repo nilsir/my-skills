@@ -1,6 +1,6 @@
 ---
 name: wecom-doc-publish
-description: Use when publishing or updating local Markdown as WeCom documents for API, Admin or Mall, synchronizing delivery comments and fields to TAPD, completing explicitly requested TAPD development nodes, or reading shared WeCom documents. 中文触发词：发布到企微、测试交接文档、前端联调文档、TAPD评论、回填开发字段、完成开发节点、读取企业微信文档。
+description: Use when publishing or updating local Markdown as WeCom documents for API, Admin or Mall, synchronizing delivery comments and fields to TAPD, completing explicitly requested TAPD development nodes, or reading shared WeCom documents. 中文触发词：发布到企微、测试交接文档、前端联调文档、关联人员@提醒、TAPD评论、回填开发字段、完成开发节点、读取企业微信文档。
 ---
 
 # 企微文档发布
@@ -29,7 +29,13 @@ python3 SKILL_DIR/shared_publisher.py --config SKILL_DIR/config.json publish --p
 
 发布文档不完成开发节点。用户明确要求完成某个节点后，核对交付证据、当前节点和必填项，用独立 `tapd_cli.py complete-step` 先预览再执行；缺少真实必填值只暂停受影响节点。不直接改需求 `status`，也不自动完成后续节点。
 
+### 提醒 TAPD 关联人员
+
 只有需求标题、未提供 TAPD 链接时，先用已授权的读取工具在已核实项目中检索，核对标题、当前任务与直接父子关系；确认唯一对应对象后再解析人员。不能把“上下文没有链接”直接当作“没有关联”。多个合理候选只暂停关联确认，不猜测对象或遍历无关项目。
+
+用户要求本次发布且需要群通知时，有真实 TAPD 关联就按 [TAPD 关联人员提醒](references/TAPD关联人员提醒.md) 先运行只读 `tapd_mentions.py`，读取本任务、直接父需求及同层子任务的前端、后端、测试人员。将返回的 `mention_markdown` 加入本次 `--notification-file`，让真实 @ 与文档链接在同一条持久通知中发送；普通说明文档也采用此步骤。使用已确认的企微 userid，不把 TAPD 用户名或“@姓名”当作真实提醒。
+
+部分人员无法唯一匹配时，已匹配人员正常加入通知，交付结果列出未匹配及跳过的人员；不声称已通知全部人员。无 TAPD 关联时不猜测人员；明确不通知时不执行此步骤。正文未变沿用“不重复通知”，不因负责人变化补发历史通知；本地映射维护也不发送消息。
 
 ### 根据文档用途自动选择通知模板
 
@@ -52,7 +58,7 @@ python3 SKILL_DIR/shared_publisher.py --config SKILL_DIR/config.json publish --p
 - 正文全量更新会重建正文块，不能保证行内评论保留。有保留讨论要求时说明限制并选择局部修改。
 - 首次发布和内容更新成功后，工具自动通知已配置且已授权的群，内容不变不发。不能在工具外重复通知，不能因通知失败重建文档；设置 key 本身不会发消息。
 - 多个需求候选或远端写入结果不确定时停止核实；不猜测、不清空状态或盲目重试。通知 unknown/sending 时由用户在群里核实；明确未发送的最近事件才能按要求 notify-retry。
-- 按配置排除的成员不查询、不同步，也不列为待处理。分别核实正文发布、通知送达和成员客户端访问。
+- 文档权限同步按配置排除的成员不查询、不同步，也不列为权限待处理；人员提醒同样不绕过自动查询排除项。分别核实正文发布、通知送达和成员客户端访问。
 
 ## 阅读权限
 
