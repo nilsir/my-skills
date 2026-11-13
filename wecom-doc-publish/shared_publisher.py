@@ -11,6 +11,7 @@ from html.parser import HTMLParser
 from urllib.parse import urlparse
 
 from publisher import Publisher, PublisherError, decoded, field, main
+from tapd_handoff import same_target
 
 PROJECT_TITLES = {'api': 'API', 'admin': 'Admin', 'mall': 'Mall'}
 MARKDOWN_LINK = re.compile(r'\[(?:\\.|[^\]\\\n])*\]\(\s*(<[^>\n]+>|[^\s)]+)(?:\s+[\"\'][^\n]*?[\"\'])?\s*\)')
@@ -61,6 +62,11 @@ def section(markdown, title):
 
 
 class SharedPublisher(Publisher):
+    def _has_tapd(self, markdown, tapd):
+        targets = links(markdown)
+        return tapd in targets or (self.config.get('tapd_sync', {}).get('enabled') is True
+                                  and any(same_target(item, tapd) for item in targets))
+
     def _require_label(self):
         label = self.config.get('publisher_label')
         if not isinstance(label, str) or not label.strip() or '\n' in label or '\r' in label:
@@ -104,7 +110,7 @@ class SharedPublisher(Publisher):
         matches = []
         for doc in candidates.values():
             _, markdown = self._read_doc(doc)
-            if tapd in links(markdown):
+            if self._has_tapd(markdown, tapd):
                 matches.append(doc)
         if len(matches) > 1:
             raise PublisherError('shared requirement conflict: multiple documents have the exact TAPD link')
@@ -120,7 +126,7 @@ class SharedPublisher(Publisher):
         known = self.state.data['documents'].get(key)
         if known and known.get('docid'):
             _, markdown = self._read_doc(known)
-            if tapd not in links(markdown) and not (known.get('seed_pending') and not markdown.strip()):
+            if not self._has_tapd(markdown, tapd) and not (known.get('seed_pending') and not markdown.strip()):
                 raise PublisherError('Known shared requirement lacks the exact original TAPD link')
             matches = self._requirement_matches(tapd)
             if matches and matches[0]['docid'] != known['docid']:
@@ -211,7 +217,7 @@ class SharedPublisher(Publisher):
                 doc.pop('seed_pending', None)
                 self.state.save()
                 _, markdown = self._read_doc(doc)
-            if requirement['tapd'] not in links(markdown):
+            if not self._has_tapd(markdown, requirement['tapd']):
                 raise PublisherError('Shared requirement lacks the exact original TAPD link')
             for project in self._all_projects():
                 # Reject ambiguous headings even when a URL happens to appear under one.

@@ -4,7 +4,15 @@
   "chrome_path": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   "state_path": "state.json",
   "publisher_label": "",
-  "link_access": "members",
+  "tapd_sync": {
+    "enabled": false,
+    "credentials_path": "~/.config/tapd/credentials.json"
+  },
+  "link_access": "corp_read",
+  "tapd_mentions": {
+    "userids": {}
+  },
+  "member_lookup_excluded": [],
   "projects": {
     "api": {
       "repo_root": "",

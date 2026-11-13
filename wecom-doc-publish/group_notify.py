@@ -108,6 +108,20 @@ def save_webhook(settings, value):
         raise ValueError('Cannot save private group webhook file') from None
 
 
+def markdown_payload(template, body_url):
+    """将已审核通知中的正文占位符替换为本次真实文档链接。"""
+    if not isinstance(template, str) or template.count('{document_url}') != 1:
+        raise ValueError('通知必须包含一个 {document_url} 占位符')
+    parsed = urlsplit(body_url)
+    if (parsed.scheme != 'https' or parsed.netloc != 'doc.weixin.qq.com'
+            or re.search(r'[\s<>)]', body_url)):
+        raise ValueError('通知正文链接必须是企业微信文档链接')
+    content = template.replace('{document_url}', body_url)
+    if len(content.encode('utf-8')) > 4096:
+        raise ValueError('群通知超过4096字节，请精简后再发布')
+    return {'msgtype': 'markdown', 'markdown': {'content': content}}
+
+
 def payload(projects, title, first, body_url, requirement_url, tapd, permissions_pending=False):
     def label(value, limit=200):
         # Prevent mentions, injected Markdown links and line breaks from metadata.

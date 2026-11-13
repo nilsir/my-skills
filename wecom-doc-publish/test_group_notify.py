@@ -61,6 +61,38 @@ class NotificationTests(unittest.TestCase):
         self.assertIn('已更新', self.sent[1]['markdown']['content'])
         self.assertNotIn(SECRET_URL, Path(self.config['state_path']).read_text())
 
+    def test_custom_handoff_notice_uses_real_link_and_sends_once(self):
+        notice = self.root / 'notice.md'
+        notice.write_text('**交付信息**\n[测试交接]({document_url})\n**上线依赖**\nSQL：无\n'
+                          '**测试重点**\nABC原词命中\n**上线顺序**\n1. 部署并验收\n')
+        first = self.publish(notification_file=notice)
+        self.assertEqual(first['notification']['status'], 'sent')
+        text = self.sent[0]['markdown']['content']
+        self.assertIn(first['url'], text)
+        self.assertNotIn('{document_url}', text)
+        self.assertNotIn('TAPD 需求', text)
+        self.assertEqual(self.publish(notification_file=notice)['notification']['status'], 'unchanged')
+        self.assertEqual(len(self.sent), 1)
+        self.assertEqual(next(iter(self.events().values()))['payload'], self.sent[0])
+
+    def test_invalid_custom_notice_rejected_before_remote_mutation(self):
+        notice = self.root / 'notice.md'
+        for text in ('链接缺失', '{document_url}' + '中' * 1366):
+            with self.subTest(text=text[:20]):
+                notice.write_text(text)
+                with self.assertRaises(publisher.PublisherError):
+                    self.publish(notification_file=notice)
+                self.assertEqual(self.cli.calls, [])
+                self.assertEqual(self.sent, [])
+
+    def test_custom_notice_dry_run_never_sends(self):
+        notice = self.root / 'notice.md'
+        notice.write_text('[测试交接]({document_url})')
+        result = self.publish(execute=False, notification_file=notice)
+        self.assertEqual(result['status'], 'dry_run')
+        self.assertEqual(self.cli.calls, [])
+        self.assertEqual(self.sent, [])
+
     def test_shared_document_one_notice_with_real_projects_links_and_permission_warning(self):
         self.cli.contacts_denied = True
         self.publish(also_projects=['mall', 'admin'])
